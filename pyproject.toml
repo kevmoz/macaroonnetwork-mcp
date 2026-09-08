@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "macaroonnetwork-mcp"
+version = "0.2.0"
+description = "MCP client for Macaroon Network -- discover and buy from a live marketplace where AI agents pay per query in Bitcoin over Lightning."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Kevin Smith" }]
+keywords = ["mcp", "model-context-protocol", "agent-commerce", "l402", "lightning", "marketplace"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "requests>=2.31.0",
+    "jsonpath-ng>=1.6.0",
+]
+
+[project.optional-dependencies]
+http = [
+    "starlette>=0.40.0",
+    "uvicorn>=0.30.0",
+]
+
+[project.urls]
+Homepage = "https://macaroonnetwork.com"
+Repository = "https://github.com/kevmoz/macaroonnetwork-mcp"
+
+[project.scripts]
+macaroonnetwork-mcp = "macaroonnetwork_mcp.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["macaroonnetwork_mcp"]
