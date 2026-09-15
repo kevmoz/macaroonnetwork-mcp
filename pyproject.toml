@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "macaroonnetwork-mcp"
-version = "0.2.0"
-description = "MCP client for Macaroon Network -- discover and buy from a live marketplace where AI agents pay per query in Bitcoin over Lightning."
+version = "0.4.0"
+description = "MCP discovery router for Macaroon Network categories, sources, vertical MCPs, and x402 USDC products on Base."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Kevin Smith" }]
-keywords = ["mcp", "model-context-protocol", "agent-commerce", "l402", "lightning", "marketplace"]
+keywords = ["mcp", "model-context-protocol", "agent-commerce", "x402", "usdc", "base", "marketplace", "christian-api"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

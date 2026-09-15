@@ -65,3 +65,53 @@ class PaymentRequired(Exception):
         self.bolt11 = bolt11
         self.amount_msat = amount_msat
         super().__init__(f"payment required: pay {bolt11} then retry with the L402 macaroon")
+
+
+class X402ChallengeMalformed(Exception):
+    """A response carried a payment-required header, but it wasn't valid
+    base64, valid JSON once decoded, or was missing a usable accepts[0]
+    entry. This is a real protocol-level bug (a broken/incompatible seller,
+    or an x402 spec change) -- it must never be silently treated as "no
+    challenge present"."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"malformed x402 payment-required challenge: {reason}")
+
+
+class X402PaymentRequired(Exception):
+    """This client never holds a private key or wallet credential, for
+    x402 any more than it does for L402. Carries the real accepts[0] terms
+    back to the caller so THEY sign the exact-scheme USDC payment with
+    their own wallet/CDP infra and retry with payment_signature set to
+    the resulting proof -- mirroring PaymentRequired's L402 contract
+    exactly (see that class's docstring). This client deliberately never
+    constructs or sees the EIP-712 typed-data payload itself."""
+
+    def __init__(
+        self,
+        *,
+        resource_url: str,
+        amount_atomic: str,
+        asset: str,
+        network: str,
+        pay_to: str,
+        extra_name: str,
+        extra_version: str,
+        max_timeout_seconds: int,
+        x402_version: int,
+    ):
+        self.resource_url = resource_url
+        self.amount_atomic = amount_atomic
+        self.asset = asset
+        self.network = network
+        self.pay_to = pay_to
+        self.extra_name = extra_name
+        self.extra_version = extra_version
+        self.max_timeout_seconds = max_timeout_seconds
+        self.x402_version = x402_version
+        super().__init__(
+            f"payment required: sign an exact x402 payment of {amount_atomic} "
+            f"atomic units of {asset} on {network} to {pay_to}, then retry "
+            f"with payment_signature set to the resulting proof"
+        )

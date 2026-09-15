@@ -20,6 +20,8 @@ payment-mode docstring below for exactly what "none" and "external" mean.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -39,6 +41,8 @@ from .exceptions import (
     PredicateNotSatisfied,
     ReceiptMismatch,
     SpendCapExceeded,
+    X402ChallengeMalformed,
+    X402PaymentRequired,
 )
 from . import predicate as predicate_lib
 
@@ -72,6 +76,42 @@ def _required_env(name: str) -> str:
 
 def _parse_www_authenticate(header: str) -> dict[str, str]:
     return dict(_CHALLENGE_RE.findall(header))
+
+
+def _parse_payment_required_header(headers: dict[str, str]) -> dict[str, Any] | None:
+    """Real x402 challenges arrive as a base64-encoded JSON body in a
+    payment-required header (confirmed live against api.macaroonnetwork.com
+    -- never raw JSON, unlike L402's plain www-authenticate string). Header
+    lookup is case-insensitive by hand rather than relying on the caller's
+    headers mapping already being a case-insensitive dict, since real
+    requests.Response.headers is one but a plain test double dict isn't.
+
+    Returns None only when no payment-required header is present at all --
+    a header that IS present but fails to decode/parse is a real protocol
+    bug and raises X402ChallengeMalformed, never silently treated the same
+    as "no challenge"."""
+    raw = None
+    for key, value in headers.items():
+        if key.lower() == "payment-required":
+            raw = value
+            break
+    if raw is None:
+        return None
+
+    try:
+        decoded_bytes = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise X402ChallengeMalformed(f"payment-required header is not valid base64: {exc}") from exc
+    try:
+        challenge = json.loads(decoded_bytes)
+    except json.JSONDecodeError as exc:
+        raise X402ChallengeMalformed(f"decoded payment-required header is not valid JSON: {exc}") from exc
+
+    accepts = challenge.get("accepts")
+    if not isinstance(accepts, list) or not accepts or not isinstance(accepts[0], dict):
+        raise X402ChallengeMalformed("decoded challenge has no usable accepts[0] entry")
+
+    return challenge
 
 
 def _canonical_json_hash(value: Any) -> str:
@@ -262,8 +302,23 @@ class MacaroonClient:
         poll_attempts: int = 10,
         poll_delay_seconds: float = 1.0,
         resume_macaroon: str | None = None,
+        payment_signature: str | None = None,
     ) -> dict[str, Any]:
-        """resume_macaroon: see purchase()'s docstring -- same reasoning."""
+        """resume_macaroon: see purchase()'s docstring -- same reasoning,
+        same requirement to resume rather than re-mint after a
+        PaymentRequired the caller has since paid out of band.
+
+        payment_signature: the x402 analogue of resume_macaroon. This
+        client never holds a wallet/signing credential for x402 any more
+        than it does for L402 (see X402PaymentRequired's docstring) -- on
+        a real x402 challenge with no payment_signature supplied, it raises
+        X402PaymentRequired carrying the real accepts[0] terms so the
+        caller can sign with their own wallet infra and retry with
+        payment_signature set to the resulting proof. Unlike L402's
+        hold-invoice accept/poll cycle, x402's "exact" scheme settles
+        synchronously within one request, so this is a single retry with a
+        PAYMENT-SIGNATURE header, never _retry_until_resolved()'s polling
+        loop."""
         if not isinstance(input_payload, dict):
             raise ValueError("input_payload must be a dict")
 
@@ -293,6 +348,19 @@ class MacaroonClient:
                 predicate=effective_predicate, price_msat=price_msat,
             )
 
+        if payment_signature is not None:
+            resp = requests.post(
+                url, json=body, headers={"PAYMENT-SIGNATURE": payment_signature},
+                timeout=timeout_seconds,
+            )
+            if resp.status_code != 200:
+                resp.raise_for_status()
+                raise RuntimeError(f"unexpected status with no error raised: {resp.status_code}")
+            return self._finish_execute(
+                resp.json(), capability_id=capability_id, input_payload=input_payload,
+                predicate=effective_predicate, price_msat=price_msat,
+            )
+
         resp = requests.post(url, json=body, timeout=timeout_seconds)
         if resp.status_code == 200:
             result = resp.json()
@@ -300,22 +368,38 @@ class MacaroonClient:
             challenge = _parse_www_authenticate(resp.headers.get("www-authenticate", ""))
             macaroon = challenge.get("macaroon")
             bolt11 = challenge.get("invoice")
-            if not macaroon or not bolt11:
-                resp.raise_for_status()
-            if _buyer_lnd_mode() == "none":
-                raise PaymentRequired(macaroon, bolt11, price_msat)
-            pay_proc = self._pay_invoice_background(bolt11)
-            try:
-                result = self._retry_until_resolved(
-                    url,
-                    body,
-                    macaroon,
-                    poll_attempts,
-                    poll_delay_seconds,
-                    request_timeout_seconds=timeout_seconds,
+            if macaroon and bolt11:
+                if _buyer_lnd_mode() == "none":
+                    raise PaymentRequired(macaroon, bolt11, price_msat)
+                pay_proc = self._pay_invoice_background(bolt11)
+                try:
+                    result = self._retry_until_resolved(
+                        url,
+                        body,
+                        macaroon,
+                        poll_attempts,
+                        poll_delay_seconds,
+                        request_timeout_seconds=timeout_seconds,
+                    )
+                finally:
+                    pay_proc.wait(timeout=30)
+            else:
+                x402_challenge = _parse_payment_required_header(resp.headers)
+                if x402_challenge is None:
+                    resp.raise_for_status()
+                    raise RuntimeError("402 response with neither an L402 nor an x402 challenge")
+                accept = x402_challenge["accepts"][0]
+                raise X402PaymentRequired(
+                    resource_url=(x402_challenge.get("resource") or {}).get("url", url),
+                    amount_atomic=accept["amount"],
+                    asset=accept["asset"],
+                    network=accept["network"],
+                    pay_to=accept["payTo"],
+                    extra_name=(accept.get("extra") or {}).get("name", ""),
+                    extra_version=(accept.get("extra") or {}).get("version", ""),
+                    max_timeout_seconds=accept.get("maxTimeoutSeconds", 60),
+                    x402_version=x402_challenge.get("x402Version", 2),
                 )
-            finally:
-                pay_proc.wait(timeout=30)
         else:
             resp.raise_for_status()
             raise RuntimeError(f"unexpected status with no error raised: {resp.status_code}")

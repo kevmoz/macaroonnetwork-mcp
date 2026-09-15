@@ -1,21 +1,20 @@
-"""macaroonnetwork-mcp — MCP server for Macaroon Network.
+"""macaroonnetwork-mcp — MCP discovery server for Macaroon Network.
 
-Four tools:
+Search exposes the x402 marketplace, canonical categories, governed sources,
+and specialised MCP servers, including source-labelled Christian evidence.
+
+Six public tools:
 
 - macaroons_search / macaroons_metadata: free, no payment, no wallet
   needed.
-- macaroons_purchase / macaroons_execute: pay via Lightning L402. By
-  default (MACAROONS_BUYER_LND_MODE unset or "none") this package holds no
-  wallet and attempts no payment -- a 402 comes back as a payment_required
-  tool result carrying the real hold invoice and macaroon, for YOU to pay
-  with whatever Lightning wallet you actually have, then retry the same
-  tool call with resume_macaroon set to that macaroon. A plain retry
-  without resume_macaroon mints a brand-new hold instead of resuming the
-  one you just paid -- see PaymentRequired's docstring in exceptions.py.
+- macaroons_categories / macaroons_discover_mcp / macaroons_sources: free
+  canonical network topology and reviewed source discovery.
+- macaroons_execute: executes x402 products using USDC on Base. By default
+  this package holds no wallet and attempts no payment; a 402 comes back as
+  x402_payment_required with the exact terms for the caller to sign.
 
-Set MACAROONS_BUYER_LND_MODE=external plus LND_BUYER_HOST/LND_BUYER_TLS/
-LND_BUYER_MACAROON if you have your own real LND node and want this
-package to auto-pay from it instead.
+Legacy L402 implementation remains private for backward code compatibility,
+but it is not advertised as a public MCP tool or payment option.
 
 Talks to https://api.macaroonnetwork.com by default -- override with
 MACAROONS_REGISTRY_URL / MACAROONS_FEED_URL for local development.
@@ -37,6 +36,7 @@ from .exceptions import (
     PredicateNotSatisfied,
     ReceiptMismatch,
     SpendCapExceeded,
+    X402PaymentRequired,
 )
 
 _REGISTRY_URL = os.environ.get("MACAROONS_REGISTRY_URL", "https://api.macaroonnetwork.com")
@@ -67,7 +67,7 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": (
                             "Natural language description of what the agent needs. "
-                            "E.g. 'GPU pricing data updated in the last 24 hours'"
+                            "E.g. 'source-labelled Christian scripture evidence'"
                         ),
                     },
                     "limit": {
@@ -75,6 +75,12 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                         "default": 5,
                         "maximum": 20,
                         "description": "Maximum number of results to return",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": (
+                            "Optional canonical category id from macaroons_categories."
+                        ),
                     },
                 },
                 "required": ["intent"],
@@ -98,67 +104,36 @@ def get_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "macaroons_purchase",
+            "name": "macaroons_categories",
             "description": (
-                "Purchase change-events for a feed target. Pays via Lightning L402 "
-                "against a hold invoice — payment only settles if the acceptance "
-                "predicate passes against the delivered payload; otherwise it is "
-                "fully refunded. If no wallet is configured (the default), returns "
-                "payment_required with a real invoice for you to pay yourself."
+                "List Macaroon's canonical intelligence categories and exact mapped "
+                "product counts. Free, no payment required."
             ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "target_id": {
-                        "type": "string",
-                        "description": "The feed target id from macaroons_metadata",
-                    },
-                    "predicate": {
-                        "type": "object",
-                        "description": (
-                            "Acceptance predicate. Payment only settles if this passes "
-                            "against the real delivered payload."
-                        ),
-                    },
-                    "max_spend_sats": {
-                        "type": "integer",
-                        "default": _DEFAULT_PER_CALL_CAP_SATS,
-                        "description": "Hard per-call spend cap in satoshis.",
-                    },
-                    "since": {
-                        "type": "string",
-                        "description": (
-                            "ISO-8601 timestamp — only change-events after this are "
-                            "considered. Defaults to 30 days ago."
-                        ),
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "default": 100,
-                        "description": "Maximum number of change-events to return",
-                    },
-                    "resume_macaroon": {
-                        "type": "string",
-                        "description": (
-                            "Only set this after a prior call returned "
-                            "payment_required and you've since paid that invoice "
-                            "with your own wallet — set it to the macaroon that "
-                            "call returned. Omit on a first attempt."
-                        ),
-                    },
-                },
-                "required": ["target_id", "predicate"],
-            },
+            "inputSchema": {"type": "object", "properties": {}, "required": []},
+        },
+        {
+            "name": "macaroons_discover_mcp",
+            "description": "List evidenced live Macaroon MCP servers and transports. Free.",
+            "inputSchema": {"type": "object", "properties": {}, "required": []},
+        },
+        {
+            "name": "macaroons_sources",
+            "description": (
+                "List reviewed source records, rights states, provenance requirements, "
+                "and honest mapping coverage. Free."
+            ),
+            "inputSchema": {"type": "object", "properties": {}, "required": []},
         },
         {
             "name": "macaroons_execute",
             "description": (
-                "Execute a paid marketplace capability by capability_id. Pays via "
-                "Lightning L402 against a hold invoice — payment only settles if "
-                "the acceptance predicate passes against the bridge response; bridge "
-                "errors and predicate failures refund. If no wallet is configured "
-                "(the default), returns payment_required with a real invoice for "
-                "you to pay yourself."
+                "Execute a paid marketplace capability by capability_id using x402 "
+                "USDC on Base. Payment only "
+                "settles if the acceptance predicate passes against the bridge "
+                "response; bridge errors and predicate failures refund. If no "
+                "wallet is configured (the default), returns "
+                "x402_payment_required with the real payment "
+                "terms for you to pay/sign yourself."
             ),
             "inputSchema": {
                 "type": "object",
@@ -181,18 +156,14 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                             "sample_predicate when omitted."
                         ),
                     },
-                    "max_spend_sats": {
-                        "type": "integer",
-                        "default": _DEFAULT_PER_CALL_CAP_SATS,
-                        "description": "Hard per-call spend cap in satoshis.",
-                    },
-                    "resume_macaroon": {
+                    "payment_signature": {
                         "type": "string",
                         "description": (
                             "Only set this after a prior call returned "
-                            "payment_required and you've since paid that invoice "
-                            "with your own wallet — set it to the macaroon that "
-                            "call returned. Omit on a first attempt."
+                            "x402_payment_required and you've since signed the "
+                            "exact-scheme USDC payment it described with your "
+                            "own wallet — set it to the resulting signed proof. "
+                            "Omit on a first attempt."
                         ),
                     },
                 },
@@ -228,19 +199,57 @@ def _payment_required(exc: PaymentRequired) -> dict[str, Any]:
     })
 
 
+def _x402_payment_required(exc: X402PaymentRequired) -> dict[str, Any]:
+    """Not a failure -- mirrors _payment_required()'s contract exactly, for
+    the x402 rail instead of L402. This client never signs the payment
+    itself; it hands back the real accepts[0] terms for YOU to sign with
+    your own wallet/CDP infra, then retry the same tool call with
+    payment_signature set to the resulting proof."""
+    return _ok({
+        "x402_payment_required": True,
+        "resource_url": exc.resource_url,
+        "amount_atomic": exc.amount_atomic,
+        "asset": exc.asset,
+        "network": exc.network,
+        "pay_to": exc.pay_to,
+        "extra_name": exc.extra_name,
+        "extra_version": exc.extra_version,
+        "max_timeout_seconds": exc.max_timeout_seconds,
+        "x402_version": exc.x402_version,
+        "instructions": (
+            "Sign an exact x402 payment of amount_atomic atomic units of "
+            "asset on network to pay_to with your own wallet/CDP infra, "
+            "then call this same tool again with identical arguments PLUS "
+            "payment_signature set to the resulting signed proof."
+        ),
+    })
+
+
 def _default_since() -> str:
     return (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 async def _search(args: dict[str, Any]) -> dict[str, Any]:
     def _do() -> list[dict[str, Any]]:
+        params = {"query": args["intent"], "limit": args.get("limit", 5)}
+        if args.get("category"):
+            params["category"] = args["category"]
         resp = requests.get(
-            f"{_REGISTRY_URL}/listings/search",
-            params={"intent": args["intent"], "limit": args.get("limit", 5)},
+            f"{_REGISTRY_URL}/api/public/services/search",
+            params=params,
             timeout=15,
         )
         resp.raise_for_status()
-        return resp.json().get("listings", [])
+        return resp.json().get("services", [])
+
+    return _ok(await asyncio.to_thread(_do))
+
+
+async def _public_registry_document(path: str) -> dict[str, Any]:
+    def _do() -> dict[str, Any]:
+        resp = requests.get(f"{_REGISTRY_URL}{path}", timeout=15)
+        resp.raise_for_status()
+        return resp.json()
 
     return _ok(await asyncio.to_thread(_do))
 
@@ -296,6 +305,7 @@ async def _execute(args: dict[str, Any]) -> dict[str, Any]:
     predicate = args.get("predicate")
     max_spend_sats = args.get("max_spend_sats", _DEFAULT_PER_CALL_CAP_SATS)
     resume_macaroon = args.get("resume_macaroon")
+    payment_signature = args.get("payment_signature")
 
     def _do() -> dict[str, Any]:
         return _client.execute_capability(
@@ -304,12 +314,15 @@ async def _execute(args: dict[str, Any]) -> dict[str, Any]:
             predicate,
             max_spend_sats=max_spend_sats,
             resume_macaroon=resume_macaroon,
+            payment_signature=payment_signature,
         )
 
     try:
         result = await asyncio.to_thread(_do)
     except PaymentRequired as exc:
         return _payment_required(exc)
+    except X402PaymentRequired as exc:
+        return _x402_payment_required(exc)
     except SpendCapExceeded as exc:
         return _error(f"SpendCapExceeded: {exc}")
     except PredicateNotSatisfied as exc:
@@ -332,8 +345,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return await _search(arguments)
     if name == "macaroons_metadata":
         return await _metadata(arguments)
+    if name == "macaroons_categories":
+        return await _public_registry_document("/api/public/taxonomy")
+    if name == "macaroons_discover_mcp":
+        return await _public_registry_document("/api/public/mcp-servers")
+    if name == "macaroons_sources":
+        return await _public_registry_document("/api/public/sources")
     if name == "macaroons_purchase":
-        return await _purchase(arguments)
+        return _error("legacy Bitcoin/Lightning purchasing is not exposed; use x402 products")
     if name == "macaroons_execute":
         return await _execute(arguments)
     return _error(f"unknown tool: {name}")
@@ -363,7 +382,7 @@ def _build_mcp_server():
 
     server = Server(
         "macaroon-network",
-        version="0.2.0",
+        version="0.4.0",
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,
     )

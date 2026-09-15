@@ -2,55 +2,54 @@
 
 <!-- mcp-name: com.macaroonnetwork/mcp-server -->
 
-MCP client for [Macaroon Network](https://macaroonnetwork.com) — a
-marketplace where AI agents discover, pay for (Bitcoin/Lightning via L402),
-and buy live data.
+MCP discovery router for [Macaroon Network](https://macaroonnetwork.com), a
+marketplace where agents find evidence-backed products and pay per successful
+query.
 
-## What this does
+The payment rail exposed by this release is **x402 using USDC on Base
+mainnet**. The package never holds a wallet or signs a payment. It returns the
+exact x402 challenge for the caller's own wallet infrastructure to sign, then
+accepts that signed proof on the retry.
 
-Four tools:
+## Tools
 
-- **`macaroons_search`** — semantic search over the live marketplace registry
-  by natural-language intent. Free.
-- **`macaroons_metadata`** — free freshness/content-hash metadata for a feed
-  target, before deciding whether to buy. Free.
-- **`macaroons_purchase`** / **`macaroons_execute`** — pay via Lightning L402
-  and receive the real, predicate-verified result. See "Paying" below —
-  by default this package holds no wallet and doesn't attempt payment for you.
+- **`macaroons_search`** — search sale-ready products by natural-language
+  intent. Free.
+- **`macaroons_metadata`** — retrieve free freshness and content-hash metadata
+  for a feed target.
+- **`macaroons_categories`** — retrieve the canonical category registry and
+  exact mapped-product counts. Free.
+- **`macaroons_discover_mcp`** — retrieve evidenced live Macaroon MCP servers
+  and their transports. Free.
+- **`macaroons_sources`** — retrieve reviewed source and rights records, with
+  explicit partial-coverage reporting. Free.
+- **`macaroons_execute`** — execute an x402 USDC product and receive the
+  predicate-verified result and receipt.
 
-## Paying
+## Paying with x402
 
-This package never holds a private key or wallet credential by default.
-When a purchase/execute call needs payment, it returns a `payment_required`
-result instead of failing:
+When a product needs payment, `macaroons_execute` returns an
+`x402_payment_required` result instead of hiding the challenge:
 
 ```json
 {
-  "payment_required": true,
-  "invoice": "lnbc...",
-  "macaroon": "eyJ...",
-  "amount_msat": 250000,
-  "instructions": "Pay this BOLT11 invoice with your own Lightning wallet, then call this same tool again with identical arguments PLUS resume_macaroon set to the macaroon above."
+  "x402_payment_required": true,
+  "resource_url": "https://api.macaroonnetwork.com/execute/...",
+  "amount_atomic": "3000",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "network": "eip155:8453",
+  "pay_to": "0x33cc...",
+  "extra_name": "USD Coin",
+  "extra_version": "2",
+  "max_timeout_seconds": 60,
+  "x402_version": 2
 }
 ```
 
-Pay the invoice with whatever Lightning wallet you actually have, then call
-the same tool again with `resume_macaroon` set to the macaroon above. A
-plain retry *without* `resume_macaroon` mints a brand-new invoice instead of
-resuming the one you just paid — always pass it back.
-
-If you run your own real LND node and want this package to auto-pay from
-it instead of returning `payment_required`, set:
-
-```bash
-MACAROONS_BUYER_LND_MODE=external
-LND_BUYER_HOST=your-node:10009
-LND_BUYER_TLS=/path/to/tls.cert
-LND_BUYER_MACAROON=/path/to/admin.macaroon
-```
-
-This shells out to a real `lncli` binary on your machine — install LND's
-`lncli` separately, it isn't bundled here.
+Sign the exact payment described by the challenge with your own wallet or
+Coinbase CDP infrastructure. Then call `macaroons_execute` again with identical
+arguments plus `payment_signature`. x402 exact settlement uses one signed
+retry; there is no invoice-polling flow.
 
 ## Install
 
@@ -70,11 +69,8 @@ pip install macaroonnetwork-mcp
 }
 ```
 
-Talks to `https://api.macaroonnetwork.com` by default. Override with
-`MACAROONS_REGISTRY_URL` / `MACAROONS_FEED_URL` env vars to point at a local
-dev stack instead. `MACAROONS_SESSION_BUDGET_SATS` (default 1000) caps total
-spend per server process; each tool call also takes a `max_spend_sats`
-per-call cap (default 100).
+The default registry is `https://api.macaroonnetwork.com`. For local
+development, override it with `MACAROONS_REGISTRY_URL`.
 
 ## License
 
