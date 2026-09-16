@@ -2,6 +2,8 @@
 
 <!-- mcp-name: com.macaroonnetwork/mcp-server -->
 
+[![Macaroonnetwork Mcp on AI Agents Listing](https://aiagentslisting.com/macaroonnetwork-mcp/badge.svg?claim=74fab7f365aebaa883fe60893fae0ac8)](https://aiagentslisting.com/mcp/macaroonnetwork-mcp)
+
 MCP discovery router for [Macaroon Network](https://macaroonnetwork.com), a
 marketplace where agents find evidence-backed products and pay per successful
 query.
