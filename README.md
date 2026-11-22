@@ -158,6 +158,10 @@ The core idea is simple:
 
 > Agents should pay for checked outcomes, not merely successful HTTP responses.
 
+## Press kit
+
+See the [press kit](docs/press-kit.md) for the public demo, technical context and artwork.
+
 ## Security
 
 Please do not report security issues in a public issue. See
