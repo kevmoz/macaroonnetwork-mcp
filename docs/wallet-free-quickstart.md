@@ -31,8 +31,25 @@ Use the protocol version returned by the server. If the response includes an
 
 ## 2. Notify initialized
 
-Send `notifications/initialized` using the negotiated protocol version and,
-when issued, the session ID.
+Use the negotiated version in the `MCP-Protocol-Version` header. If the server
+issued `Mcp-Session-Id`, set `mcp_session_id` to that value before running this
+Bash block. Subsequent responses can be JSON or an SSE `data:` line.
+
+```bash
+mcp_headers=(-H 'Content-Type: application/json'
+  -H 'Accept: application/json, text/event-stream'
+  -H 'MCP-Protocol-Version: 2025-03-26') # Replace with the returned version.
+if [[ -n "${mcp_session_id:-}" ]]; then
+  mcp_headers+=(-H "Mcp-Session-Id: $mcp_session_id")
+fi
+mcp_rpc() {
+  curl --silent --show-error --include --max-time 20     https://api.macaroonnetwork.com/mcp "${mcp_headers[@]}" --data "$1"
+}
+mcp_rpc '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+```
+
+Pass each JSON body in the next three steps as a single quoted argument to
+`mcp_rpc`.
 
 ## 3. List tools
 
@@ -76,7 +93,11 @@ when issued, the session ID.
 }
 ```
 
-Treat search results as discovery pointers. Inspect the selected listing and its
-current contract before execution.
+## 6. Inspect the contract and stop
 
-The paid `macaroons_execute` path is intentionally outside this quickstart.
+Open [Live UK Company Search](https://macaroonnetwork.com/listings/companies-house-live-search-v1).
+Inspect the input schema, Companies House provenance, advertised price and
+acceptance predicate. See [what that predicate checks](acceptance-predicates.md).
+
+This completes the demo. The walkthrough ends before `macaroons_execute` and
+requires no Macaroon signup, email, wallet or payment.

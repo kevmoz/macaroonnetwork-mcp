@@ -11,6 +11,7 @@ acceptance conditions, then decide whether to execute.
 For predicate-gated routes, Macaroon evaluates the declared machine-checkable
 condition against the returned result as part of settlement. An HTTP 200 alone
 does not prove that the acceptance condition passed or that payment settled.
+See [how acceptance predicates work](docs/acceptance-predicates.md).
 
 **Start with free discovery. No wallet or API key is required.**
 
