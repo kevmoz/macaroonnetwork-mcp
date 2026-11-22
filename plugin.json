@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "macaroon-network",
+  "version": "0.1.0",
+  "description": "Discover digital services and inspect their price, source and acceptance conditions before execution.",
+  "author": {
+    "name": "Macaroon Network"
+  },
+  "homepage": "https://macaroonnetwork.com/developers"
+}
