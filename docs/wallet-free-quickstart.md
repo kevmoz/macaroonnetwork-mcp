@@ -7,6 +7,17 @@ This walkthrough uses the public Streamable HTTP endpoint:
 It performs discovery only. It does not call paid execution and does not require
 a wallet, API key or signing material.
 
+## Run the free demo
+
+From this repository, run:
+
+```sh
+python examples/free_companies_house_search.py
+```
+
+The example prints matching capabilities and the public contract URL. For
+an interactive client or a raw JSON-RPC walkthrough, use the steps below.
+
 ## 1. Initialize
 
 ```bash
@@ -95,9 +106,11 @@ Pass each JSON body in the next three steps as a single quoted argument to
 
 ## 6. Inspect the contract and stop
 
-Open [Live UK Company Search](https://macaroonnetwork.com/listings/companies-house-live-search-v1).
+Open [Live UK Company Search](https://macaroonnetwork.com/listings/companies-house-live-search-v1?utm_source=github&utm_medium=referral&utm_campaign=public_mcp).
 Inspect the input schema, Companies House provenance, advertised price and
 acceptance predicate. See [what that predicate checks](acceptance-predicates.md).
 
 This completes the demo. The walkthrough ends before `macaroons_execute` and
 requires no Macaroon signup, email, wallet or payment.
+
+[Why HTTP 200 isn't enough when agents spend money](why-http-200-isnt-enough.md)

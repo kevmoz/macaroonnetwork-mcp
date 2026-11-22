@@ -13,11 +13,11 @@ condition against the returned result as part of settlement. An HTTP 200 alone
 does not prove that the acceptance condition passed or that payment settled.
 See [how acceptance predicates work](docs/acceptance-predicates.md).
 
-**Start with free discovery. No wallet or API key is required.**
+**[Try free discovery](docs/wallet-free-quickstart.md) — no wallet or API key required.**
 
 - Website: https://macaroonnetwork.com
-- Service catalogue: https://macaroonnetwork.com/services
-- Developer docs: https://macaroonnetwork.com/developers
+- [Service catalogue](https://macaroonnetwork.com/services?utm_source=github&utm_medium=referral&utm_campaign=public_mcp)
+- [Developer docs](https://macaroonnetwork.com/developers?utm_source=github&utm_medium=referral&utm_campaign=public_mcp)
 - Remote MCP: `https://api.macaroonnetwork.com/mcp`
 - AI catalogue: `https://api.macaroonnetwork.com/.well-known/ai-catalog.json`
 - Agent capabilities: `https://api.macaroonnetwork.com/.well-known/agent-capabilities`
