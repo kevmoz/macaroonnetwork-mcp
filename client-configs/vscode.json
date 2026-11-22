@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "macaroon-network": {
+      "type": "http",
+      "url": "https://api.macaroonnetwork.com/mcp"
+    }
+  }
+}
