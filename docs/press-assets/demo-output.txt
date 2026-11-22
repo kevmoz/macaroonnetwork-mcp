@@ -1,0 +1,7 @@
+Connected. Discovery tools are available.
+Categories returned successfully.
+- UK Company Search
+- Live UK Company Search
+- Live UK Company Profile & Filing Status
+
+Inspect inputs, source, price and acceptance condition: https://macaroonnetwork.com/listings/companies-house-live-search-v1

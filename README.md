@@ -12,6 +12,7 @@ For predicate-gated routes, Macaroon evaluates the declared machine-checkable
 condition against the returned result as part of settlement. An HTTP 200 alone
 does not prove that the acceptance condition passed or that payment settled.
 See [how acceptance predicates work](docs/acceptance-predicates.md).
+Read the [worked example on HTTP 200 and agent payments](https://macaroonnetwork.com/articles/http-200-agent-payments?utm_source=github&utm_medium=referral&utm_campaign=http200-agent-payments).
 
 **[Try free discovery](docs/wallet-free-quickstart.md) — no wallet or API key required.**
 
@@ -157,6 +158,10 @@ Macaroon is designed to make the commercial contract inspectable too:
 The core idea is simple:
 
 > Agents should pay for checked outcomes, not merely successful HTTP responses.
+
+## Press kit
+
+See the [press kit](docs/press-kit.md) for the public demo, technical context and artwork.
 
 ## Security
 
