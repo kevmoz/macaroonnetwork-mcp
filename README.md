@@ -93,6 +93,8 @@ the individual service contract before execution.
 
 ## Install the stdio package
 
+The current PyPI package is **0.4.0**. See the [v0.4.0 release notes](https://github.com/kevmoz/macaroonnetwork-mcp/releases/tag/v0.4.0) and [PyPI package](https://pypi.org/project/macaroonnetwork-mcp/0.4.0/).
+
 ```bash
 pip install macaroonnetwork-mcp
 ```
