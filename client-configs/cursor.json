@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "macaroon-network": {
+      "url": "https://api.macaroonnetwork.com/mcp"
+    }
+  }
+}
